@@ -10,35 +10,61 @@ class SfmlConan(ConanFile):
     version = "2.4.2"
     url = "https://github.com/bincrafters/conan-sfml"
     description = "Simple and Fast Multimedia Library"
-
-    # Indicates License type of the packaged library
     license = "https://www.sfml-dev.org/license.php"
-
-    # Packages the license for the conanfile.py
     exports = ["LICENSE.md"]
-
-    # Remove following lines if the target lib does not use cmake.
     exports_sources = ["CMakeLists.txt"]
     generators = "cmake"
-
-    # Options may need to change depending on the packaged library.
     settings = "os", "arch", "compiler", "build_type"
     options = {"shared": [True, False]}
     default_options = "shared=True"
 
-    # Custom attributes for Bincrafters recipe conventions
     source_subfolder = "source_subfolder"
     build_subfolder = "build_subfolder"
     install_subfolder = "install_subfolder"
-
-    # Use version ranges for dependencies unless there's a reason not to
-    requires = ()
 
     def source(self):
         source_url = "https://github.com/SFML/SFML"
         tools.get("{0}/archive/{1}.tar.gz".format(source_url, self.version))
         extracted_dir = self.name.upper() + "-" + self.version
         os.rename(extracted_dir, self.source_subfolder)
+
+    def requirements(self):
+        # SFML depends on many external third-parties.
+        # - On Windows, they are bundled as binaries inside the sources.
+        # - On Linux, we are advised to install them as system packages.
+        # - On Android, it may be the same as on Linux.
+        # - On Macos, they seem to be bundled as frameworks inside the sources (but I don't know enough about how this works).
+        # - On iOS, it may be the same as on Macos.
+
+        # Ideally, for all platforms, we would install them as conan packages
+        # but this would probably require to work with SFML team to modify their cmakelist ?
+
+        # The following conan packages are available in bincrafters bintray:
+        # self.requires("libjpeg/9b@bincrafters/stable") # jpeg
+        # self.requires("freetype/2.8.1@bincrafters/stable") # freetype
+        # self.requires("glfw/3.2.1@bincrafters/stable") # opengl
+        # self.requires("vorbis/1.3.5@bincrafters/stable") # vorbis
+        # self.requires("flac/1.3.2@bincrafters/stable") # flac
+        # self.requires("ogg/1.3.3@bincrafters/stable") # ogg
+        pass
+
+    def system_requirements(self):
+        if self.settings.os == "Linux":
+            # - On Linux, as stated in https://www.sfml-dev.org/tutorials/2.4/compile-with-cmake.php,
+            #   we are advised to install the following system packages:
+            #     freetype, jpeg, x11, xrandr, xcb, x11-xcb, xcb-randr, xcb-image,
+            #     opengl, flac, ogg, vorbis, vorbisenc, vorbisfile, openal, pthread
+            # Should we do this ?
+            # installer = SystemPackageTool()
+            # installer.install("libx11-dev")
+            # installer.install("libxrandr-dev")
+            # installer.install("freeglut3-dev")
+            # installer.install("libudev-dev")
+            # installer.install("libjpeg8-dev")
+            # installer.install("libopenal-dev")
+            # installer.install("libsndfile1-dev")
+            # installer.install("libfreetype6-dev")
+            pass
 
     def build(self):
         cmake = CMake(self)
@@ -49,14 +75,6 @@ class SfmlConan(ConanFile):
         cmake.configure(source_folder=self.source_subfolder, build_folder=self.build_subfolder)
         cmake.build()
         cmake.install()
-
-        # Note for Linux:
-        # As stated in https://www.sfml-dev.org/tutorials/2.4/compile-with-cmake.php,
-        # you need to install these system packages:
-        #   freetype, jpeg, x11, xrandr, xcb, x11-xcb, xcb-randr, xcb-image,
-        #   opengl, flac, ogg, vorbis, vorbisenc, vorbisfile, openal, pthread
-        # (see .travis.yml for the list of related apt-get commands)
-        # (in the future, this packages may be provided as conan packages too)
 
     def package(self):
         include_folder = os.path.join(self.install_subfolder, "include")
@@ -77,3 +95,19 @@ class SfmlConan(ConanFile):
         self.cpp_info.libs = tools.collect_libs(self)
         if not self.options.shared:
             self.cpp_info.defines = ["SFML_STATIC"]
+            if self.settings.os == "Windows":
+                self.cpp_info.libs.extend(["opengl32.lib", "winmm.lib", "gdi32.lib", "ws2_32.lib"])
+        if self.settings.os == "Linux":
+            # On Linux, do we need to link with sfml's third-parties too ?
+            pass
+        if self.settings.os == "Macos" or self.settings.os == "iOS":
+            # On Mac, do we may need to do something like this ?
+            # self.cpp_info.exelinkflags.append("-framework FLAC")
+            # self.cpp_info.exelinkflags.append("-framework freetype")
+            # self.cpp_info.exelinkflags.append("-framework ogg")
+            # self.cpp_info.exelinkflags.append("-framework OpenAL")
+            # self.cpp_info.exelinkflags.append("-framework vorbis")
+            # self.cpp_info.exelinkflags.append("-framework vorbisenc")
+            # self.cpp_info.exelinkflags.append("-framework vorbisfile")
+            # self.cpp_info.sharedlinkflags = self.cpp_info.exelinkflags
+            pass
