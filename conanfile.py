@@ -67,12 +67,15 @@ class SfmlConan(ConanFile):
             pass
 
     def build(self):
+        if self.settings.os == "Linux": # See: https://stackoverflow.com/questions/38727800/ld-linker-error-cpu-model-hidden-symbol
+            self._patch_cmakelist_for_graphics()
         cmake = CMake(self)
+        cmake.definitions["CMAKE_VERBOSE_MAKEFILE"] = "TRUE"
         cmake.definitions["CMAKE_INSTALL_PREFIX"] = os.path.join("..", self.install_subfolder)
         cmake.definitions["CMAKE_INSTALL_FRAMEWORK_PREFIX"] = os.path.join("..", self.install_subfolder, "frameworks")
         if self.settings.compiler == "Visual Studio":
             cmake.definitions["SFML_USE_STATIC_STD_LIBS"] = "TRUE" if str(self.settings.compiler.runtime).startswith("MT") else "FALSE"
-        cmake.configure(source_folder=self.source_subfolder, build_folder=self.build_subfolder)
+        cmake.configure(source_folder=".", build_folder=self.build_subfolder)
         cmake.build()
         cmake.install()
 
@@ -111,3 +114,30 @@ class SfmlConan(ConanFile):
             # self.cpp_info.exelinkflags.append("-framework vorbisfile")
             # self.cpp_info.sharedlinkflags = self.cpp_info.exelinkflags
             pass
+
+    def _patch_cmakelist_for_graphics(self):
+        def _read_file(file_path_name):
+            f = open(file_path_name, "r")
+            contents = f.readlines()
+            f.close()
+            return contents
+        def _write_file(file_path_name, contents):
+            f = open(file_path_name, "w")
+            contents = "".join(contents)
+            f.write(contents)
+            f.close()
+        self.output.warn("Applying workaround for bug https://bugs.launchpad.net/ubuntu/+source/gcc-5/+bug/1568899")
+        search_for = "# define the sfml-graphics target\n"
+        replace_with = "\n".join([
+            '# BEGIN PATCH for link error: hidden symbol __cpu_model (https://bugs.launchpad.net/ubuntu/+source/gcc-5/+bug/1568899)',
+            'if(SFML_COMPILER_GCC AND BUILD_SHARED_LIBS)',
+            '    list(APPEND GRAPHICS_EXT_LIBS "-lgcc_s -lgcc")',
+            'endif()',
+            '# END PATCH',
+            '',
+            search_for,
+        ])
+        cmakelist_path_name = os.path.join(self.source_subfolder, "src/SFML/Graphics/CMakeLists.txt")
+        contents = _read_file(cmakelist_path_name)
+        contents = [replace_with if x==search_for else x for x in contents]
+        _write_file(cmakelist_path_name, contents)

@@ -9,15 +9,15 @@
 int main()
 {
     // Test System
-    sf::Clock clock{};
-    const auto duration = clock.getElapsedTime();
+    sf::Clock clock;
+    const sf::Time duration = clock.getElapsedTime();
     std::cout << "Elapsed Time: " << duration.asMicroseconds() << " microseconds\n";
 
     // Test Window & Graphics
-    sf::RenderWindow window{ { 1200, 800 }, "Test" };
+    sf::RenderWindow window(sf::VideoMode(1200, 800), "Test");
 
     // Test Audio
-    sf::SoundBuffer soundBuffer{};
+    sf::SoundBuffer soundBuffer;
     soundBuffer.loadFromFile("dummy");
 
     // Test Network
