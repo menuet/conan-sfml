@@ -5,6 +5,18 @@ from conans import ConanFile, CMake, tools
 import os
 
 
+def output_enter_leave(fn):
+    def _impl(*args, **kwargs):
+        conan_obj = args[0]
+        functionTitle = "{module}.{cls}.{fn}".format(module=fn.__module__, cls=conan_obj.__class__.__name__, fn=fn.__name__) if args else "{module}.{fn}.".format(module=fn.__module__, fn=fn.__name__)
+        conan_obj.output.info("ENTER {}()".format(functionTitle))
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            conan_obj.output.info("LEAVE {}".format(functionTitle))
+    return _impl
+
+
 class SfmlConan(ConanFile):
     name = "sfml"
     version = "2.4.2"
@@ -22,12 +34,14 @@ class SfmlConan(ConanFile):
     build_subfolder = "build_subfolder"
     install_subfolder = "install_subfolder"
 
+    @output_enter_leave
     def source(self):
         source_url = "https://github.com/SFML/SFML"
         tools.get("{0}/archive/{1}.tar.gz".format(source_url, self.version))
         extracted_dir = self.name.upper() + "-" + self.version
         os.rename(extracted_dir, self.source_subfolder)
 
+    @output_enter_leave
     def requirements(self):
         # SFML depends on many external third-parties.
         # - On Windows, they are bundled as binaries inside the sources.
@@ -48,22 +62,13 @@ class SfmlConan(ConanFile):
         # self.requires("ogg/1.3.3@bincrafters/stable") # ogg
         pass
 
+    @output_enter_leave
     def system_requirements(self):
         if self.settings.os == "Linux":
             # - On Linux, as stated in https://www.sfml-dev.org/tutorials/2.4/compile-with-cmake.php,
             #   we are advised to install the following system packages:
             #     freetype, jpeg, x11, xrandr, xcb, x11-xcb, xcb-randr, xcb-image,
             #     opengl, flac, ogg, vorbis, vorbisenc, vorbisfile, openal, pthread
-            # Should we do this ?
-            # installer = SystemPackageTool()
-            # installer.install("libx11-dev")
-            # installer.install("libxrandr-dev")
-            # installer.install("freeglut3-dev")
-            # installer.install("libudev-dev")
-            # installer.install("libjpeg8-dev")
-            # installer.install("libopenal-dev")
-            # installer.install("libsndfile1-dev")
-            # installer.install("libfreetype6-dev")
             package_tool = tools.SystemPackageTool()
             package_tool.install("libx11-dev")
             package_tool.install("libxrandr-dev")
@@ -74,7 +79,9 @@ class SfmlConan(ConanFile):
             package_tool.install("libsndfile1-dev")
             package_tool.install("libfreetype6-dev")
 
+    @output_enter_leave
     def build(self):
+        self.output.info("Current Dir: {}".format(os.getcwd()))
         if self.settings.os == "Linux": # See: https://stackoverflow.com/questions/38727800/ld-linker-error-cpu-model-hidden-symbol
             self._patch_cmakelist_for_graphics()
         cmake = CMake(self)
@@ -87,6 +94,7 @@ class SfmlConan(ConanFile):
         cmake.build()
         cmake.install()
 
+    @output_enter_leave
     def package(self):
         include_folder = os.path.join(self.install_subfolder, "include")
         bin_folder = os.path.join(self.install_subfolder, "bin")
@@ -102,6 +110,7 @@ class SfmlConan(ConanFile):
         self.copy(pattern="*.lib", dst="lib", src=lib_folder, keep_path=False)
         self.copy(pattern="*.a", dst="lib", src=lib_folder, keep_path=False)
 
+    @output_enter_leave
     def package_info(self):
         self.cpp_info.libs = tools.collect_libs(self)
         if not self.options.shared:
