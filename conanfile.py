@@ -64,7 +64,8 @@ class SfmlConan(ConanFile):
             # installer.install("libopenal-dev")
             # installer.install("libsndfile1-dev")
             # installer.install("libfreetype6-dev")
-            pass
+            package_tool = tools.SystemPackageTool()
+            package_tool.install("libx11-dev")
 
     def build(self):
         if self.settings.os == "Linux": # See: https://stackoverflow.com/questions/38727800/ld-linker-error-cpu-model-hidden-symbol
